@@ -1,17 +1,29 @@
 import tkinter as tk
 from tkinter import messagebox
-import sys
 from PIL import Image, ImageTk
+import glob, pprint, sys, os
 
-from utilities.utils import collect_files_from_directory
+#from utilities.utils import collect_files_from_directory
+def collect_files_from_directory(dir, accepts=[".jpg", ".png", ".jpeg"]):
+  hashmap = {}
+  for f in glob.glob(f'{dir}/**/*', recursive=True):
+    for ending in accepts:
+      if(f.lower().endswith(ending)):
+        print("image found")
+        basename = os.path.basename(f).lower()
+        if basename not in hashmap:
+          hashmap[basename] = []
+        hashmap[basename].append(f)
+
+  pprint.pprint(hashmap)
+  return hashmap
+
 
 root = tk.Tk()
 root.geometry("600x450")
-images_mapping = collect_files_from_directory('./images') 
+images_mapping = collect_files_from_directory('images') 
 refs = {}
 current_page_idx = 0
-
-
 
 def toggle_image(var,path):
     # loop through all the buttons to enable or disable each one
@@ -28,7 +40,8 @@ def toggle_image(var,path):
 
 var = 0 
 
-
+print('refs', refs)
+print('im map', images_mapping)
 filename = 'stock1.jpeg'
 if filename not in refs:
   refs[filename] = {}
