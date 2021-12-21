@@ -14,3 +14,5 @@ def collect_files_from_directory(dir, accepts=[".jpg", ".png", ".jpeg"]):
   pprint.pprint(hashmap)
   return hashmap
 
+def main(event):
+  print(event.widget)
