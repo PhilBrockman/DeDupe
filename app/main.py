@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
 import glob, pprint, sys, os
-
 def to_basename(p):
   return os.path.basename(p).lower()
 
@@ -35,86 +34,166 @@ def toggle_image(var,filename):
 
     refs[to_basename(filename)][DUPLICATES][key]['btn_ref'].config(fg=color)
 
-first_key = lambda d: list(d.keys())[0]
-root = tk.Tk()
-root.geometry("600x450")
-images_mapping = collect_files_from_directory('images') 
-refs = {}
-current_page_idx = first_key(images_mapping)
-
-DOOMSDAY_COUNT = "doomsday_count"
-DUPLICATES = 'duplicates'
-
-def undo():
-  pass
-
-def advance(curr_idx):
-  # increment doomsday on the doomed baskets
-  for key, val in refs.items():
-    if DOOMSDAY_COUNT not in val:
-      refs[key][DOOMSDAY_COUNT] = 0
-
-    if key == curr_idx or DOOMSDAY_COUNT in val:
-      if val[DOOMSDAY_COUNT] > 1 or key == curr_idx:
-        print("hooo")
-        refs[key][DOOMSDAY_COUNT] += 1
-      else:
-        refs[key][DOOMSDAY_COUNT] = 0
-
-  # advance pointer
-  unviewed = [x for x in images_mapping if x not in refs or not refs[x][DOOMSDAY_COUNT] > 0]
-
+def advance_pointer(increment=False):
+  available = [x for x in images_mapping if x not in refs or not refs[x][DOOMSDAY_COUNT] > 0 and len(refs[x][DUPLICATES].keys()) > 0]
   curr_idx = None
-  if len(unviewed) > 0:
-    curr_idx = unviewed[0]
+  if len(available) > 0:
+    has_doomsday_at_one = [x for x in images_mapping if x in refs and refs[x][DOOMSDAY_COUNT] == 1 and len(refs[x][DUPLICATES].keys()) > 0]
+    if len(has_doomsday_at_one) > 0:
+      curr_idx = has_doomsday_at_one[-1]
+    else:
+      curr_idx = available[0]
+    print("available: ", curr_idx)
+  else:
+    has_big_doomsday = [x for x in images_mapping if refs[x][DOOMSDAY_COUNT] > 0 and len(refs[x][DUPLICATES].keys()) > 0]
+    if len(has_big_doomsday) > 0:
+      curr_idx = has_big_doomsday[-1]
+    print("unavailable")
+
+  if increment:
+    if curr_idx not in refs:
+      refs[curr_idx] = {
+        DOOMSDAY_COUNT: 0,
+        DUPLICATES: {},
+      }
+    refs[curr_idx][DOOMSDAY_COUNT] += 1
+
 
   draw_buttons(curr_idx)
+  pprint.pprint(refs)
 
+def undo(current_page_idx):
+  curr_index = images_mapping_keys.index(current_page_idx)
 
-var = 0 
+  for key in images_mapping_keys:
+    if images_mapping_keys.index(key) <= curr_index:
+      refs[key][DOOMSDAY_COUNT] -= 1
 
+      if refs[key][DOOMSDAY_COUNT] < 0:
+        refs[key][DOOMSDAY_COUNT] = 0
 
+  advance_pointer()
 
-print('refs', refs)
-print('im map', images_mapping)
-filename = current_page_idx
+def advance(current_page_idx):
+  # increment doomsday on the doomed baskets
 
-def draw_buttons(filename):
-  print('drawing buttnso fro ', filename)
-  if filename:
-    for i in range(len(images_mapping[filename])):
-      image_path = images_mapping[filename][i]
-      img_file = Image.open(image_path)
-      img_file = img_file.resize((150, 150))
-      img = ImageTk.PhotoImage(img_file)
+  if(current_page_idx):
+    curr_index = images_mapping_keys.index(current_page_idx)
+  else:
+    curr_index = -1
+
+  for key in images_mapping_keys:
+    if images_mapping_keys.index(key) <= curr_index:
+      refs[key][DOOMSDAY_COUNT] += 1
+
+    if key in refs and refs[key][DOOMSDAY_COUNT] > 2:
+      keep = {}
+      for filename, val in refs[key][DUPLICATES].items():
+        if not val['save']:
+          if os.path.exists(filename):
+            os.remove(filename)
+        else:
+          keep[filename] = val
+      print("keeeep", keep)
+      refs[key][DUPLICATES] = keep
+
+        
+  advance_pointer(increment=True)
+
+def get_color(id1, id2):
+  if id2 in refs[id1][DUPLICATES] and "save" in refs[id1][DUPLICATES][id2] and refs[id1][DUPLICATES][id2]['save']:
+    return "black"
+  else:
+    return "red"
+
+def draw_buttons(current_page_idx):
+  for widget in root.winfo_children():
+    widget.destroy()
+  
+  undo_button = tk.Button(
+    root, 
+    text="<- Undo",
+    command=lambda: undo(current_page_idx),
+  )
+  undo_button.grid(row=1,column=1)
+
+  advance_button = tk.Button(
+    root, 
+    text="Advance ->",
+    command=lambda: advance(current_page_idx),
+  )
+  advance_button.grid(row=1,column=2)
+
+  if current_page_idx:
+    # add current page to refs
+    if current_page_idx not in refs:
+      refs[current_page_idx] = {
+        DUPLICATES: {},
+        DOOMSDAY_COUNT: 0,
+      }
+
+    for i in range(len(images_mapping[current_page_idx])):
+      image_path = images_mapping[current_page_idx][i]
+
+      # add specific image to memory
+      if image_path not in refs[current_page_idx][DUPLICATES]:
+        refs[current_page_idx][DUPLICATES][image_path] = {
+          "idx": i,
+          "image_ref": None,
+          "btn_ref": None,
+          "save": False,
+        }
+      else:
+        if len(refs[current_page_idx][DUPLICATES].keys()) == 0:
+          continue
+
+      # cache the image ref
+      if os.path.exists(image_path):
+        if refs[current_page_idx][DUPLICATES][image_path]['image_ref']:
+          img = refs[current_page_idx][DUPLICATES][image_path]['image_ref']
+        else:
+          img_file = Image.open(image_path)
+          img_file = img_file.resize((150, 150))
+          img = ImageTk.PhotoImage(img_file)
+          refs[current_page_idx][DUPLICATES][image_path]['image_ref'] = img
+      else:
+        img = None
+
+      # create the button
       btn = tk.Button(
           root, 
           image=img,
           text=image_path,
           compound=tk.BOTTOM,
           command=lambda var=i, path=image_path:toggle_image(var,path),
-          fg="red"
+          fg=get_color(current_page_idx, image_path)
       )
-      btn.grid(row=1,column=i)
+      btn.grid(row=2,column=i)
 
-      if filename not in refs:
-        refs[filename] = {
-          DUPLICATES: {},
-          DOOMSDAY_COUNT: 0,
-        }
+      #cache the button
+      refs[current_page_idx][DUPLICATES][image_path]['btn_ref'] = btn
 
-      refs[filename][DUPLICATES][image_path] = {
-        "idx": i,
-        "image_ref": img,
-        "btn_ref": btn,
-        "save": False,
-      }
       
-btn = tk.Button(
-  root, 
-  text="Advance ->",
-  command=lambda: advance(current_page_idx),
-)
-btn.grid(row=1,column=1)
+
+# set up tkinter
+root = tk.Tk()
+root.geometry("600x450")
+
+# pull images
+images_mapping = collect_files_from_directory('images') 
+images_mapping_keys = list(images_mapping.keys())
+
+print("mapping,", images_mapping_keys)
+
+# memory for application
+refs = {}
+
+DOOMSDAY_COUNT = "doomsday_count"
+DUPLICATES = 'duplicates'
+
+draw_buttons(None)
+
+
+
 
 root.mainloop()
