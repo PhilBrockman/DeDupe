@@ -74,9 +74,13 @@ import glob, pprint, sys, os, textwrap
 def to_basename(p):
   return os.path.basename(p).lower()
 
-def collect_files_from_directory(dir, accepts=[".jpg", ".png", ".jpeg"]):
+def collect_files_from_directory(dir, accepts=[".jpg", ".jpeg", ".mp4"]):
+  val = 0
   hashmap = {}
-  for f in glob.glob(f'{dir}/**/*', recursive=True):
+  for f in glob.glob('D:\**\*', recursive=True):
+	#val += 1
+	#if val % 1000 == 0:
+	#	print(val)
     for ending in accepts:
       if(f.lower().endswith(ending)):
         print("image found")
@@ -199,15 +203,21 @@ def add_to_memory(current_page_idx):
       if len(refs[current_page_idx][DUPLICATES].keys()) == 0:
         continue
 
+	button_text = "Image deleted"
     # cache the image ref
     if os.path.exists(image_path):
       if refs[current_page_idx][DUPLICATES][image_path]['image_ref']:
         img = refs[current_page_idx][DUPLICATES][image_path]['image_ref']
       else:
-        img_file = Image.open(image_path)
-        img_file = img_file.resize((250, 250))
-        img = ImageTk.PhotoImage(img_file)
-        refs[current_page_idx][DUPLICATES][image_path]['image_ref'] = img
+	    try:
+          img_file = Image.open(image_path)
+          img_file = img_file.resize((250, 250))
+          img = ImageTk.PhotoImage(img_file)
+          refs[current_page_idx][DUPLICATES][image_path]['image_ref'] = img
+		except:
+		  button_text = f"Cannot Load: {image_path}"
+		  refs[current_page_idx][DUPLICATES][image_path]['image_ref'] = None
+	  button_text = image_path
     else:
       img = None
 
@@ -215,13 +225,13 @@ def add_to_memory(current_page_idx):
     btn = tk.Button(
         content_frame,
         image=img,
-        text=image_path,
+        text=button_text,
           wraplength=180,
         compound=tk.BOTTOM,
         command=lambda var=i, path=image_path:toggle_image(var,path),
         fg=get_color(current_page_idx, image_path)
     )
-    btn.grid(row=2 + i//7, column=i%7)
+    btn.grid(row=2 + i // 5, column=i%5)
 
     #cache the button
     refs[current_page_idx][DUPLICATES][image_path]['btn_ref'] = btn
