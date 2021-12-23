@@ -338,7 +338,7 @@ def draw_buttons():
   advance_button(row=1, column=3)
   label = tk.Message(
     content_frame,
-    text=f"Basket {CURRENT[INDEX]} ({CURRENT[CLAMPED_INDEX]} / {len(get_clamped_images_mapping())})"
+    text=f"Basket {CURRENT[INDEX]} ({1 + clamped_keys().index(CURRENT[INDEX]) + CURRENT[CLAMPED_INDEX] } / {len(CURRENT['images_mapping'])})"
   )
   label.grid(row=1,column=4)
 
@@ -385,16 +385,15 @@ def end_program():
   CURRENT['STATE'] = END_PROGRAM
 
 # pull images
-
 if __name__ == "__main__":
   try:
-    opts, args = getopt.getopt(sys.argv[1:],"hc:d:w:",["columns=","directory=","undo-window="])
+    opts, args = getopt.getopt(sys.argv[1:],"hc:d:w:a:",["columns=","directory=","undo-window=","anchor="])
   except getopt.GetoptError:
     vprint ('main.py -c <columns> -d <directory>')
     sys.exit(2)
   for opt, arg in opts:
     if opt == '-h':
-        vprint ('main.py -c <columns> -d <directory> -w <undo-window>')
+        vprint ('main.py -c <columns> -d <directory> -w <undo-window> -a <anchor>')
         sys.exit()
     elif opt in ("-c", "--columns"):
         CURRENT["COLUMNS"] = int(arg)
@@ -402,9 +401,14 @@ if __name__ == "__main__":
         CURRENT["DIR"] = arg
     elif opt in ("-w", "--undo-window"):
         CURRENT[UNDO_WINDOW] = arg
+    elif opt in ("-a", "--anchor"):
+        CURRENT[CLAMPED_INDEX] = int(arg)
 
   collected_files = collect_files_from_directory(CURRENT["DIR"])
   CURRENT['images_mapping'] = collected_files
+  sorted_keys = list(CURRENT['images_mapping'].keys())
+  sorted_keys.sort()
+  CURRENT[CLAMPED_KEY_LIST] = sorted_keys[:CURRENT[CLAMPED_INDEX]]
 
   # memory for application
   DOOMSDAY_COUNT = "doomsday_count"
