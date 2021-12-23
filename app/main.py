@@ -7,11 +7,11 @@ def vprint(*args, always=True):
       print(args)
 
 def setIndex(val):
+  print("setting index", val)
   CURRENT[INDEX] = val
 
 def to_basename(p):
   return os.path.basename(p).lower()
-
 
 def collect_files_from_directory(dir, accepts=[".jpg", ".jpeg", ".mp4"]):
   val = 0
@@ -28,7 +28,6 @@ def collect_files_from_directory(dir, accepts=[".jpg", ".jpeg", ".mp4"]):
           hashmap[basename] = []
         hashmap[basename].append(f)
 
-  pprint.pprint(hashmap)
   return hashmap
 
 def toggle_image(var,filename):
@@ -44,13 +43,21 @@ def toggle_image(var,filename):
 
     CURRENT[MEM][to_basename(filename)][DUPLICATES][key]['btn_ref'].config(fg=color)
 
-
 def file_age(filepath):
   if os.path.exists(filepath):
     return time.time() - os.path.getmtime(filepath)
   else:
     return time.time() 
 
+def get_clamped_images_mapping():
+  res = {x: CURRENT['images_mapping'][x] for x in CURRENT['images_mapping'] if x not in CURRENT[CLAMPED_KEY_LIST]}
+  # pprint.pprint(res)
+  return res
+
+def clamped_keys():
+  remaining_keys = list(get_clamped_images_mapping().keys())
+  remaining_keys.sort()
+  return remaining_keys
 
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -58,7 +65,7 @@ import glob, pprint, os, sys, getopt, time
 
 # set up tkinter
 root = tk.Tk()
-root.geometry("600x450")
+root.geometry("1200x900")
 content_frame = tk.Frame(root)
 content_frame.pack( side = tk.TOP )
 
@@ -70,6 +77,8 @@ UNDO_WINDOW = "undo window"
 STATE = "STATE"
 INDEX = "index"
 MEM = 'mem'
+CLAMPED_INDEX = "clamp"
+CLAMPED_KEY_LIST = "clamped key list"
 
 CURRENT= {
   INDEX: None,
@@ -78,11 +87,16 @@ CURRENT= {
   UNDO_WINDOW: 3,
   STATE: INIT,
   MEM: {},
-  "VERBOSE": False
+  "VERBOSE": False,
+  CLAMPED_INDEX: 0,
+  CLAMPED_KEY_LIST: [],
 }
 
 
 def setState(val):
+  # print("current state")
+  # pprint.pprint(CURRENT)
+  # print("chaning to ", val)
   if val == INIT:
     CURRENT[STATE] = INIT
     init_program()
@@ -96,28 +110,36 @@ def setState(val):
     return
 
 def advance_pointer(advance):
-  available = [x for x in images_mapping if x not in CURRENT[MEM] or CURRENT[MEM][x][DOOMSDAY_COUNT] <= 0]
+  available = [x for x in clamped_keys() if x not in CURRENT[MEM] or CURRENT[MEM][x][DOOMSDAY_COUNT] <= 0]
+  vprint("available", available)
   if advance:
     # find first new image
     vprint("advancing with ", len(available), "choices")
     if len(available) > 0:
       try:
+        print(" 0 case")
         setIndex(available[0])
+        print(" 0--I set the index ")
       except:
+        print("1) excetped in advance pointer")
         setState(END_PROGRAM)
         return
     else:
+      print("2) excetped in advance pointer")
       setState(END_PROGRAM)
       return
   else:
-    prev_seen = [x for x in images_mapping if x in CURRENT[MEM] and CURRENT[MEM][x][DOOMSDAY_COUNT] == 1]
+    prev_seen = [x for x in clamped_keys() if x in CURRENT[MEM] and CURRENT[MEM][x][DOOMSDAY_COUNT] == 1]
     if len(prev_seen) > 0:
-      setIndex(prev_seen[-1])
+      # print("3) excetped in advance pointer")
+      setIndex((prev_seen[-1]))
     elif len(available) > 0:
-      setIndex(available[0])
+      # print("4) excetped in advance pointer")
+      setIndex((available[0]))
     vprint("undoing with ", len(available), "choices")
 
-  # provide a default structure for the objects in memory
+  print("continuing to advance")
+  # provide adefault structure for the objects in memory
   if CURRENT[INDEX] and CURRENT[INDEX] not in CURRENT[MEM]:
     CURRENT[MEM][CURRENT[INDEX]] = {
       DOOMSDAY_COUNT: 0,
@@ -128,7 +150,7 @@ def advance_pointer(advance):
   if(advance):
     try: 
       # this will fail after falling off the end of the list
-      vprint("current index", images_mapping_keys.index(CURRENT[INDEX]))
+      vprint("current index", CURRENT[INDEX])
       CURRENT[MEM][CURRENT[INDEX]][DOOMSDAY_COUNT] += 1
     except:
       # we did it!
@@ -146,25 +168,15 @@ def undo():
   print("UNDO()")
   setState(RUNNING)
 
-  curr_index = images_mapping_keys.index(CURRENT[INDEX])
+  remaing_keys = clamped_keys()
 
-  flag = "DOWN"
-  detected = False
-
-  for key in images_mapping_keys:
-    if images_mapping_keys.index(key) <= curr_index:
+  for key in remaing_keys:
+    if remaing_keys.index(key) <= remaing_keys.index(CURRENT[INDEX]):
       CURRENT[MEM][key][DOOMSDAY_COUNT] -= 1
-      if CURRENT[MEM][images_mapping_keys[0]][DOOMSDAY_COUNT] == 0:
-        flag = "UP"
-      if flag == "UP":
-        if CURRENT[MEM][key][DOOMSDAY_COUNT] != 0:
-          print()
-          detected = True
-  
+
   # 1 0 0 0 0 0  
-  if flag == "UP" :
+  if CURRENT[MEM][remaing_keys[0]][DOOMSDAY_COUNT] == 0:
       print("the flag is up")
-      pprint.pprint(CURRENT[MEM])
       setState(INIT)
       return
   else:
@@ -178,12 +190,18 @@ def save():
   for key in CURRENT[MEM].keys():
     if CURRENT[MEM][key][DOOMSDAY_COUNT] > 0:
       DELETE_UNSAVED_DUPLICATE_PHOTOS(key)
-  print("saved")
-
+  CURRENT[CLAMPED_INDEX] = CURRENT[INDEX]
+  setIndex(0)
+  sorted_keys = CURRENT['images_mapping'].keys().sort()
+  CURRENT[CLAMPED_KEY_LIST] = sorted_keys[:CURRENT['images_mapping'].index(CURRENT[INDEX])]
 
 def DELETE_UNSAVED_DUPLICATE_PHOTOS(key):
+  if key in CURRENT[CLAMPED_KEY_LIST]:
+    return "out of bounds"
+
   keep = {}
-  for filename, val in CURRENT[MEM][key][DUPLICATES].items():
+  for filename in CURRENT[MEM][key][DUPLICATES]:
+    val = CURRENT[MEM][key][DUPLICATES][filename]
     if not val['save']:
       if os.path.exists(filename):
         os.remove(filename)
@@ -199,19 +217,17 @@ def advance():
   print("ADVANCE()")
   setState(RUNNING)
 
-  if(CURRENT[INDEX]):
-    curr_index = images_mapping_keys.index(CURRENT[INDEX])
-  else:
-    curr_index = -1
+  remaining_keys = clamped_keys()
+  print("advancing: ", remaining_keys)
+  if CURRENT[INDEX] is not None:
+    print("current index is not noen")
+    for key in remaining_keys:
+      if remaining_keys.index(key) <= remaining_keys.index(CURRENT[INDEX]):
+        print("\t advancing ", key)
+        CURRENT[MEM][key][DOOMSDAY_COUNT] += 1
 
-  vprint("current index", CURRENT[INDEX], "|", curr_index )
-
-  for key in images_mapping_keys:
-    if images_mapping_keys.index(key) <= curr_index:
-      CURRENT[MEM][key][DOOMSDAY_COUNT] += 1
-
-    if key in CURRENT[MEM] and CURRENT[MEM][key][DOOMSDAY_COUNT] > CURRENT[UNDO_WINDOW]:
-      DELETE_UNSAVED_DUPLICATE_PHOTOS(key)
+      if key in CURRENT[MEM] and CURRENT[MEM][key][DOOMSDAY_COUNT] > CURRENT[UNDO_WINDOW]:
+        DELETE_UNSAVED_DUPLICATE_PHOTOS(key)
 
   vprint("--> advance")
   advance_pointer(advance=True)
@@ -226,9 +242,9 @@ def add_current_index_to_memory():
   if not CURRENT[INDEX]:
     return
 
-  duplicates = images_mapping[CURRENT[INDEX]]
+  duplicates = get_clamped_images_mapping()[CURRENT[INDEX]]
   if len(duplicates) >= 1:
-    first_key = images_mapping[CURRENT[INDEX]][0]
+    first_key = get_clamped_images_mapping()[CURRENT[INDEX]][0]
     youngest_file = {
       "key": first_key,
       "age": file_age(first_key)
@@ -240,8 +256,8 @@ def add_current_index_to_memory():
         youngest_file['key'] = key
         youngest_file['age'] = key_age
 
-  for i in range(len(images_mapping[CURRENT[INDEX]])):
-    image_path = images_mapping[CURRENT[INDEX]][i]
+  for i in range(len(get_clamped_images_mapping()[CURRENT[INDEX]])):
+    image_path = get_clamped_images_mapping()[CURRENT[INDEX]][i]
 
     # add specific image to memory
     if image_path not in CURRENT[MEM][CURRENT[INDEX]][DUPLICATES]:
@@ -319,6 +335,11 @@ def draw_buttons():
   undo_button(row=1, column=1)
   save_button(row=1, column=2)
   advance_button(row=1, column=3)
+  label = tk.Message(
+    content_frame,
+    text=f"Basket {CURRENT[INDEX]} ({CURRENT[CLAMPED_INDEX]} / {len(get_clamped_images_mapping())})"
+  )
+  label.grid(row=1,column=4)
 
   add_current_index_to_memory()
 
@@ -338,7 +359,7 @@ def init_program():
   
   setIndex(None)
   # load structure into memory
-  for current_page_idx in images_mapping:
+  for current_page_idx in get_clamped_images_mapping():
     CURRENT[MEM][current_page_idx] = fresh_start()
 
   advance_button(row=1,column=1)
@@ -381,23 +402,15 @@ if __name__ == "__main__":
     elif opt in ("-w", "--undo-window"):
         CURRENT[UNDO_WINDOW] = arg
 
-  images_mapping = collect_files_from_directory(CURRENT["DIR"])
-  images_mapping_keys = list(images_mapping.keys())
-
-  vprint("mapping,", images_mapping_keys)
-
+  collected_files = collect_files_from_directory(CURRENT["DIR"])
+  CURRENT['images_mapping'] = collected_files
 
   # memory for application
-  
   DOOMSDAY_COUNT = "doomsday_count"
   DUPLICATES = 'duplicates'
 
   root.bind('<Left>', lambda x: undo())
   root.bind('<Right>', lambda x: advance())
-
-  # load structure into memory
-  for current_page_idx in images_mapping:
-    CURRENT[MEM][current_page_idx] = fresh_start()
 
   init_program()
   root.mainloop()
