@@ -190,10 +190,11 @@ def save():
   for key in CURRENT[MEM].keys():
     if CURRENT[MEM][key][DOOMSDAY_COUNT] > 0:
       DELETE_UNSAVED_DUPLICATE_PHOTOS(key)
-  CURRENT[CLAMPED_INDEX] = CURRENT[INDEX]
-  setIndex(0)
-  sorted_keys = CURRENT['images_mapping'].keys().sort()
-  CURRENT[CLAMPED_KEY_LIST] = sorted_keys[:CURRENT['images_mapping'].index(CURRENT[INDEX])]
+
+  CURRENT[CLAMPED_INDEX] += clamped_keys().index(CURRENT[INDEX])
+  sorted_keys = list(CURRENT['images_mapping'].keys())
+  sorted_keys.sort()
+  CURRENT[CLAMPED_KEY_LIST] = sorted_keys[:CURRENT[CLAMPED_INDEX]]
 
 def DELETE_UNSAVED_DUPLICATE_PHOTOS(key):
   if key in CURRENT[CLAMPED_KEY_LIST]:
