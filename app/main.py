@@ -405,7 +405,7 @@ if __name__ == "__main__":
         CURRENT[CLAMPED_INDEX] = int(arg)
 
   collected_files = collect_files_from_directory(CURRENT["DIR"])
-  CURRENT['images_mapping'] = collected_files
+  CURRENT['images_mapping'] = {x: collected_files[x] for x in collected_files if len(collected_files[x]) > 1}
   sorted_keys = list(CURRENT['images_mapping'].keys())
   sorted_keys.sort()
   CURRENT[CLAMPED_KEY_LIST] = sorted_keys[:CURRENT[CLAMPED_INDEX]]
