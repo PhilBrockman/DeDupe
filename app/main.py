@@ -22,7 +22,7 @@ def collect_files_from_directory(dir, accepts=[".jpg", ".jpeg", ".mp4"]):
       vprint(val)
     for ending in accepts:
       if(f.lower().endswith(ending)):
-        vprint("image found")
+        # vprint("image found")
         basename = to_basename(f)
         if basename not in hashmap:
           hashmap[basename] = []
@@ -58,40 +58,6 @@ def clamped_keys():
   remaining_keys = list(get_clamped_images_mapping().keys())
   remaining_keys.sort()
   return remaining_keys
-
-import tkinter as tk
-from PIL import Image, ImageTk
-import glob, pprint, os, sys, getopt, time
-
-# set up tkinter
-root = tk.Tk()
-root.geometry("1200x900")
-content_frame = tk.Frame(root)
-content_frame.pack( side = tk.TOP )
-
-END_PROGRAM = "end_program"
-INIT = "init"
-RUNNING = "running"
-END_PROGRAM = "end_Program"
-UNDO_WINDOW = "undo window"
-STATE = "STATE"
-INDEX = "index"
-MEM = 'mem'
-CLAMPED_INDEX = "clamp"
-CLAMPED_KEY_LIST = "clamped key list"
-
-CURRENT= {
-  INDEX: None,
-  "DIR": "images/**/*", #"D:\**\*",
-  "COLUMNS": 5,
-  UNDO_WINDOW: 3,
-  STATE: INIT,
-  MEM: {},
-  "VERBOSE": False,
-  CLAMPED_INDEX: 0,
-  CLAMPED_KEY_LIST: [],
-}
-
 
 def setState(val):
   # print("current state")
@@ -207,7 +173,15 @@ def DELETE_UNSAVED_DUPLICATE_PHOTOS(key):
       if os.path.exists(filename):
         os.remove(filename)
     else:
+      path = os.path.dirname(val['save_location'])
+      if not os.path.exists(path):
+        os.makedirs(path)
+
+      print("moving ", filename, "to:")
+      print('\t', val['save_location'])
+      shutil.move(filename, val['save_location'])
       keep[filename] = val
+
   CURRENT[MEM][key][DUPLICATES] = keep
 
 def advance():
@@ -267,20 +241,22 @@ def add_current_index_to_memory():
         "image_ref": None,
         "btn_ref": None,
         "save": image_path == youngest_file['key'],
+        "save_location": image_path,
       }
     else:
       if len(CURRENT[MEM][CURRENT[INDEX]][DUPLICATES].keys()) == 0:
         continue
 
     button_text = f"<deleted> @ {image_path}"
+    image_location = CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['save_location']
     # cache the image ref
-    if os.path.exists(image_path):
+    if os.path.exists(image_location):
       if CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['image_ref']:
         img = CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['image_ref']
       else:
         try:
-          img_file = Image.open(image_path)
-          img_file = img_file.resize((250, 250))
+          img_file = Image.open(image_location)
+          img_file = img_file.resize((CURRENT[WIDTH], CURRENT[HEIGHT]))
           img = ImageTk.PhotoImage(img_file)
           CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['image_ref'] = img
         except:
@@ -300,7 +276,23 @@ def add_current_index_to_memory():
         command=lambda var=i, path=image_path:toggle_image(var,path),
         fg=get_color(CURRENT[INDEX], image_path)
     )
-    btn.grid(row=2 + i // CURRENT["COLUMNS"], column=i%CURRENT["COLUMNS"])
+    btn.grid(row=2 + 2*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
+
+
+    # text = tk.StringVar()
+    # text.set()
+    path_input = tk.Text(
+      content_frame,
+      width = 40,
+      height = 5,
+      # textvariable = text,
+      )
+    path_input.grid(row=3 + 2*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
+    path_input.insert(tk.END, CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['save_location'])
+    def setSaveLocation(im_p, new_location):
+      CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][im_p]['save_location'] = new_location
+
+    path_input.bind("<KeyRelease>", lambda x: setSaveLocation(image_path, x.widget.get("1.0",'end-1c')))
 
     #cache the button
     CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['btn_ref'] = btn
@@ -384,6 +376,45 @@ def end_program():
   label.grid(row=1,column=3)
   CURRENT['STATE'] = END_PROGRAM
 
+
+
+import tkinter as tk
+from PIL import Image, ImageTk
+import glob, pprint, os, sys, getopt, time, shutil
+
+# set up tkinter
+root = tk.Tk()
+root.geometry("1200x900")
+content_frame = tk.Frame(root)
+content_frame.pack( side = tk.TOP )
+
+END_PROGRAM = "end_program"
+INIT = "init"
+RUNNING = "running"
+END_PROGRAM = "end_Program"
+UNDO_WINDOW = "undo window"
+STATE = "STATE"
+INDEX = "index"
+MEM = 'mem'
+CLAMPED_INDEX = "clamp"
+CLAMPED_KEY_LIST = "clamped key list"
+WIDTH = 'width'
+HEIGHT = 'height'
+
+CURRENT= {
+  INDEX: None,
+  "DIR": "../images/**/*", #"D:\**\*",
+  "COLUMNS": 5,
+  WIDTH: 350,
+  HEIGHT: 250,
+  UNDO_WINDOW: 10,
+  STATE: INIT,
+  MEM: {},
+  "VERBOSE": False,
+  CLAMPED_INDEX: 0,
+  CLAMPED_KEY_LIST: [],
+}
+
 # pull images
 if __name__ == "__main__":
   try:
@@ -405,6 +436,15 @@ if __name__ == "__main__":
         CURRENT[CLAMPED_INDEX] = int(arg)
 
   collected_files = collect_files_from_directory(CURRENT["DIR"])
+  counts = {}
+  for key, val in collected_files.items():
+    idx = len(val)
+    if idx not in counts:
+      counts[idx] = 0
+    counts[idx] += 1
+
+  pprint.pprint(counts)
+
   CURRENT['images_mapping'] = {x: collected_files[x] for x in collected_files if len(collected_files[x]) > 1}
   sorted_keys = list(CURRENT['images_mapping'].keys())
   sorted_keys.sort()
@@ -418,4 +458,12 @@ if __name__ == "__main__":
   root.bind('<Right>', lambda x: advance())
 
   init_program()
+
+
+  # scroll = tk.Scrollbar(root)
+  # # content_frame.configure(yscrollcommand=scroll.set)
+  # # content_frame.pack(side=tk.LEFT)
+    
+  # # scroll.config(command=content_frame.yview)
+  # # scroll.pack(side=tk.RIGHT, fill=tk.Y)
   root.mainloop()
