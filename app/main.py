@@ -227,7 +227,8 @@ def add_current_index_to_memory():
 
     for key in duplicates:
       key_age = file_age(key)
-      if key_age <= youngest_file['age']:
+      print(key_age)
+      if key_age >= youngest_file['age']:
         youngest_file['key'] = key
         youngest_file['age'] = key_age
 
@@ -276,23 +277,34 @@ def add_current_index_to_memory():
         command=lambda var=i, path=image_path:toggle_image(var,path),
         fg=get_color(CURRENT[INDEX], image_path)
     )
-    btn.grid(row=2 + 2*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
+    btn.grid(row=2 + 3*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
 
-
-    # text = tk.StringVar()
-    # text.set()
+    # allow path to be rewritten
+    def setSaveLocation(im_p, new_location):
+      CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][im_p]['save_location'] = new_location
     path_input = tk.Text(
       content_frame,
       width = 40,
       height = 5,
-      # textvariable = text,
       )
-    path_input.grid(row=3 + 2*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
+    path_input.grid(row=3 + 3*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
     path_input.insert(tk.END, CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['save_location'])
-    def setSaveLocation(im_p, new_location):
-      CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][im_p]['save_location'] = new_location
-
     path_input.bind("<KeyRelease>", lambda x: setSaveLocation(image_path, x.widget.get("1.0",'end-1c')))
+
+    # open full screen preview
+    def create_window(img_location):
+      koniec=tk.Toplevel()
+      koniec.title("Vítaz!")
+      canvas = tk.Canvas(koniec, width=800, height=600)
+      canvas.pack()
+      img = ImageTk.PhotoImage(Image.open(img_location))
+      label = tk.Label(koniec, image=img)
+      label.image = img # keep a reference!
+      label.pack()
+
+    preview_btn = tk.Button(content_frame, text="preview in new window")
+    preview_btn.bind("<Button-1>", lambda x: create_window(CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['save_location']))
+    preview_btn.grid(row=4 + 3*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
 
     #cache the button
     CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['btn_ref'] = btn
