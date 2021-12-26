@@ -398,6 +398,30 @@ def end_program():
   CURRENT['STATE'] = END_PROGRAM
 
 
+import tkinter as tk
+class Example(tk.Frame):
+  def __init__(self, parent):
+
+      tk.Frame.__init__(self, parent)
+      self.canvas = tk.Canvas(self, borderwidth=0, background="#ffffff")
+      self.frame = tk.Frame(self.canvas, background="#ffffff")
+      self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+      self.canvas.configure(yscrollcommand=self.vsb.set)
+      self.vsb.pack(side="right", fill="y")
+
+      self.hsb = tk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+      self.canvas.configure(xscrollcommand=self.hsb.set)
+      self.hsb.pack(side="bottom", fill="x")
+
+      self.canvas.pack(side="left", fill="both", expand=True)
+      self.canvas.create_window((4,4), window=self.frame, anchor="nw",
+                                tags="self.frame")
+
+      self.frame.bind("<Configure>", self.onFrameConfigure)
+
+  def onFrameConfigure(self, event):
+      '''Reset the scroll region to encompass the inner frame'''
+      self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
 import tkinter as tk
 from tkinter import messagebox
@@ -407,8 +431,12 @@ import glob, pprint, os, sys, getopt, time, shutil
 # set up tkinter
 root = tk.Tk()
 root.geometry("1200x900")
-content_frame = tk.Frame(root)
-content_frame.pack( side = tk.TOP )
+
+
+example = Example(root)
+example.pack(side="top", fill="both", expand=True)
+content_frame = example.frame
+# content_frame.pack( side = tk.TOP )
 
 END_PROGRAM = "end_program"
 INIT = "init"
@@ -482,11 +510,9 @@ if __name__ == "__main__":
 
   init_program()
 
-
-  # scroll = tk.Scrollbar(root)
   # # content_frame.configure(yscrollcommand=scroll.set)
   # # content_frame.pack(side=tk.LEFT)
     
   # # scroll.config(command=content_frame.yview)
-  # # scroll.pack(side=tk.RIGHT, fill=tk.Y)
+  # scroll.pack(side=tk.RIGHT, fill=tk.Y)
   root.mainloop()
