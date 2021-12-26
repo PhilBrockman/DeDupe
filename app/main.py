@@ -156,6 +156,11 @@ def save():
   for key in CURRENT[MEM].keys():
     if CURRENT[MEM][key][DOOMSDAY_COUNT] > 0:
       DELETE_UNSAVED_DUPLICATE_PHOTOS(key)
+    for im_path in CURRENT[MEM][key][DUPLICATES]:
+      print('im_path', im_path)
+      print("rewriting text:",  CURRENT[MEM][key][DUPLICATES][im_path]['save_location'])
+      CURRENT[MEM][key][DUPLICATES][im_path]['btn_ref'].config(text=CURRENT[MEM][key][DUPLICATES][im_path]['save_location'])
+      # CURRENT[MEM][key][DUPLICATES][im_path]['btn_ref'].image.set("fooo")
 
   CURRENT[CLAMPED_INDEX] += clamped_keys().index(CURRENT[INDEX])
   sorted_keys = list(CURRENT['images_mapping'].keys())
@@ -167,20 +172,22 @@ def DELETE_UNSAVED_DUPLICATE_PHOTOS(key):
     return "out of bounds"
 
   keep = {}
-  for filename in CURRENT[MEM][key][DUPLICATES]:
-    val = CURRENT[MEM][key][DUPLICATES][filename]
+  for original_filename in CURRENT[MEM][key][DUPLICATES]:
+    val = CURRENT[MEM][key][DUPLICATES][original_filename]
     if not val['save']:
-      if os.path.exists(filename):
-        os.remove(filename)
+      if os.path.exists(original_filename):
+        os.remove(original_filename)
     else:
       path = os.path.dirname(val['save_location'])
       if not os.path.exists(path):
         os.makedirs(path)
-
-      print("moving ", filename, "to:")
-      print('\t', val['save_location'])
-      shutil.move(filename, val['save_location'])
-      keep[filename] = val
+      try:
+        shutil.move(val['original_location'], val['save_location'])
+      except:
+        print("could not move", val)
+      
+      val['original_location'] = val['save_location']
+      keep[original_filename] = val
 
   CURRENT[MEM][key][DUPLICATES] = keep
 
@@ -223,11 +230,10 @@ def add_current_index_to_memory():
     youngest_file = {
       "key": first_key,
       "age": file_age(first_key)
-      }
+    }
 
     for key in duplicates:
       key_age = file_age(key)
-      print(key_age)
       if key_age >= youngest_file['age']:
         youngest_file['key'] = key
         youngest_file['age'] = key_age
@@ -243,6 +249,7 @@ def add_current_index_to_memory():
         "btn_ref": None,
         "save": image_path == youngest_file['key'],
         "save_location": image_path,
+        "original_location": image_path,
       }
     else:
       if len(CURRENT[MEM][CURRENT[INDEX]][DUPLICATES].keys()) == 0:
@@ -289,21 +296,20 @@ def add_current_index_to_memory():
       )
     path_input.grid(row=3 + 3*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
     path_input.insert(tk.END, CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['save_location'])
-    path_input.bind("<KeyRelease>", lambda x: setSaveLocation(image_path, x.widget.get("1.0",'end-1c')))
+    path_input.bind("<KeyRelease>", lambda x, image_path=image_path: setSaveLocation(image_path, x.widget.get("1.0",'end-1c')))
 
     # open full screen preview
     def create_window(img_location):
-      koniec=tk.Toplevel()
+      koniec=tk.Toplevel(width=1200, height=800)
       koniec.title("Vítaz!")
-      canvas = tk.Canvas(koniec, width=800, height=600)
-      canvas.pack()
       img = ImageTk.PhotoImage(Image.open(img_location))
       label = tk.Label(koniec, image=img)
       label.image = img # keep a reference!
       label.pack()
 
+
     preview_btn = tk.Button(content_frame, text="preview in new window")
-    preview_btn.bind("<Button-1>", lambda x: create_window(CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['save_location']))
+    preview_btn.bind("<Button-1>", lambda e, loc=CURRENT[MEM][CURRENT[INDEX]][DUPLICATES][image_path]['original_location']: create_window(loc))
     preview_btn.grid(row=4 + 3*(i // CURRENT["COLUMNS"]), column=i%CURRENT["COLUMNS"])
 
     #cache the button
@@ -334,6 +340,7 @@ def advance_button(row, column):
   advance_button.grid(row=row,column=column)
 
 def draw_buttons():
+  print("drawing buttons")
   for widget in content_frame.winfo_children():
     widget.destroy()
 
@@ -415,7 +422,7 @@ HEIGHT = 'height'
 
 CURRENT= {
   INDEX: None,
-  "DIR": "../images/**/*", #"D:\**\*",
+  "DIR": ".\\**\\*",
   "COLUMNS": 5,
   WIDTH: 350,
   HEIGHT: 250,
@@ -456,6 +463,7 @@ if __name__ == "__main__":
     counts[idx] += 1
 
   pprint.pprint(counts)
+  print(sum(counts.values()))
 
   CURRENT['images_mapping'] = {x: collected_files[x] for x in collected_files if len(collected_files[x]) > 1}
   sorted_keys = list(CURRENT['images_mapping'].keys())
