@@ -185,6 +185,8 @@ def DELETE_UNSAVED_DUPLICATE_PHOTOS(key):
         shutil.move(val['original_location'], val['save_location'])
       except:
         print("could not move", val)
+        messagebox.showerror("Error moving file", f"This file could not be moved: {val['original_location']}. Have Phil take a look at the command line history to try to diagnose what happened. In the meantime, try to see if the rest of the files on this page are in the location you expect. There's a chance restarting the program could help, but I really don't know what happened.\n\nFull details: {val}")
+
       
       val['original_location'] = val['save_location']
       keep[original_filename] = val
@@ -398,6 +400,7 @@ def end_program():
 
 
 import tkinter as tk
+from tkinter import messagebox
 from PIL import Image, ImageTk
 import glob, pprint, os, sys, getopt, time, shutil
 
