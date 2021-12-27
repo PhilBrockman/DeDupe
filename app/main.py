@@ -1,4 +1,3 @@
-
 def vprint(*args, always=True):
   if always:
     print(args)
@@ -77,7 +76,7 @@ def setState(val):
 
 def advance_pointer(advance):
   available = [x for x in clamped_keys() if x not in CURRENT[MEM] or CURRENT[MEM][x][DOOMSDAY_COUNT] <= 0]
-  vprint("available", available)
+  # vprint("available", available)
   if advance:
     # find first new image
     vprint("advancing with ", len(available), "choices")
@@ -123,7 +122,6 @@ def advance_pointer(advance):
       setState(END_PROGRAM)
       return
 
-  vprint([CURRENT[MEM][x][DOOMSDAY_COUNT] for x in CURRENT[MEM] if DOOMSDAY_COUNT in CURRENT[MEM][x]])
   draw_buttons()
 
 def undo():
@@ -156,16 +154,16 @@ def save():
   for key in CURRENT[MEM].keys():
     if CURRENT[MEM][key][DOOMSDAY_COUNT] > 0:
       DELETE_UNSAVED_DUPLICATE_PHOTOS(key)
-    for im_path in CURRENT[MEM][key][DUPLICATES]:
-      print('im_path', im_path)
-      print("rewriting text:",  CURRENT[MEM][key][DUPLICATES][im_path]['save_location'])
-      CURRENT[MEM][key][DUPLICATES][im_path]['btn_ref'].config(text=CURRENT[MEM][key][DUPLICATES][im_path]['save_location'])
-      # CURRENT[MEM][key][DUPLICATES][im_path]['btn_ref'].image.set("fooo")
+    if key == CURRENT[INDEX]:
+      for im_path in CURRENT[MEM][key][DUPLICATES]:
+        CURRENT[MEM][key][DUPLICATES][im_path]['btn_ref'].config(text=CURRENT[MEM][key][DUPLICATES][im_path]['save_location'])
 
   CURRENT[CLAMPED_INDEX] += clamped_keys().index(CURRENT[INDEX])
   sorted_keys = list(CURRENT['images_mapping'].keys())
   sorted_keys.sort()
   CURRENT[CLAMPED_KEY_LIST] = sorted_keys[:CURRENT[CLAMPED_INDEX]]
+  with open(SAVE_CLAMPED_INDEX_FILE, 'w') as filetowrite:
+      filetowrite.write(str(CURRENT[CLAMPED_INDEX]))
 
 def DELETE_UNSAVED_DUPLICATE_PHOTOS(key):
   if key in CURRENT[CLAMPED_KEY_LIST]:
@@ -202,7 +200,7 @@ def advance():
   setState(RUNNING)
 
   remaining_keys = clamped_keys()
-  print("advancing: ", remaining_keys)
+  # print("advancing: ", remaining_keys)
   if CURRENT[INDEX] is not None:
     print("current index is not noen")
     for key in remaining_keys:
@@ -304,8 +302,12 @@ def add_current_index_to_memory():
     def create_window(img_location):
       koniec=tk.Toplevel(width=1200, height=800)
       koniec.title("Vítaz!")
+
+      created_window = Example(koniec)
+      created_window.pack(side="top", fill="both", expand=True)
+
       img = ImageTk.PhotoImage(Image.open(img_location))
-      label = tk.Label(koniec, image=img)
+      label = tk.Label(created_window.frame, image=img)
       label.image = img # keep a reference!
       label.pack()
 
@@ -351,7 +353,7 @@ def draw_buttons():
   advance_button(row=1, column=3)
   label = tk.Message(
     content_frame,
-    text=f"Basket {CURRENT[INDEX]} ({1 + clamped_keys().index(CURRENT[INDEX]) + CURRENT[CLAMPED_INDEX] } / {len(CURRENT['images_mapping'])})"
+    text=f"Basket {CURRENT[INDEX]} ({1 + clamped_keys().index(CURRENT[INDEX]) + CURRENT[CLAMPED_INDEX] } / {len(CURRENT['images_mapping'])})\n\nClamped: {CURRENT[CLAMPED_INDEX]}"
   )
   label.grid(row=1,column=4)
 
@@ -438,6 +440,8 @@ example.pack(side="top", fill="both", expand=True)
 content_frame = example.frame
 # content_frame.pack( side = tk.TOP )
 
+SAVE_CLAMPED_INDEX_FILE = "clamped.txt"
+
 END_PROGRAM = "end_program"
 INIT = "init"
 RUNNING = "running"
@@ -457,13 +461,18 @@ CURRENT= {
   "COLUMNS": 5,
   WIDTH: 350,
   HEIGHT: 250,
-  UNDO_WINDOW: 10,
+  UNDO_WINDOW: 1,
   STATE: INIT,
   MEM: {},
   "VERBOSE": False,
   CLAMPED_INDEX: 0,
   CLAMPED_KEY_LIST: [],
 }
+
+if os.path.exists(SAVE_CLAMPED_INDEX_FILE):
+  with open(SAVE_CLAMPED_INDEX_FILE) as f:
+    lines = f.readlines()
+  CURRENT[CLAMPED_INDEX] = int(lines[0].strip())
 
 # pull images
 if __name__ == "__main__":
