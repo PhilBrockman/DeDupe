@@ -9,7 +9,7 @@ def collect_files_from_directory(dir):
         hashmap[name] = []
       hashmap[name].append({
         "path": f,
-        "count": sum(len(files) for _, _, files in os.walk(f)),
+        "file count": sum(len(files) for _, _, files in os.walk(f)),
       })
 
   return hashmap
